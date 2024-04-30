@@ -1,0 +1,48 @@
+{% include "header.html" %}
+<body class="signinbody">
+    <div class="container-the-form"> 
+        <div class="signin-container">
+            {% with messages = get_flashed_messages() %}
+                {% if messages %}
+                    {% for message in messages %}
+                        <p class="flashee">{{message}}</p>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            <h2>Sign Up</h2>
+            <form action="/signup" method="post">
+                <div class="signin-form-group">
+                    <label for="username">Username:</label>
+                    <input type="text" id="username" name="username" required>
+                </div>
+
+                <div class="signin-form-group">
+                    <label for="username">Email:</label>
+                    <input type="text" id="username" name="email" required>
+                </div>
+
+                <div class="signin-form-group">
+                    <label for="password">Password:</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="admin" id="admin">
+                    <label class="form-check-label" for="admin">
+                    Seller
+                    </label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="customer" id="customer" checked>
+                    <label class="form-check-label" for="customer">
+                        Customer
+                    </label>
+                </div>
+
+                <div class="signin-form-group">
+                    <button type="submit">Sign Up</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+{% include "footer.html" %}
