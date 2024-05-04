@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, abort
+from flask import Flask, render_template, request, redirect, url_for, flash, abort, jsonify
 from flask_login import UserMixin, login_user, logout_user, current_user, LoginManager
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func
@@ -7,8 +7,16 @@ from functools import wraps
 from datetime import datetime, timedelta
 import secrets
 import os
+from dotenv import load_dotenv
+
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
+
+load_dotenv()
 
 app=Flask(__name__,template_folder='templates')
+config = cloudinary.config(secure=True)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+mysqlconnector://root:S%40hil276@localhost/flasksite'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
@@ -42,12 +50,12 @@ class User(UserMixin, db.Model):
     cart = db.relationship('Cart', backref='user', uselist=False)
 
 
+
 class Order(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     covers = db.relationship('Covers', backref='order')
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     date = db.Column(db.String(250), nullable=False)
-
 
 class Covers(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -90,7 +98,13 @@ def admin_only(f):
 
 def get_total_quantity():
     if current_user.is_authenticated:
-        quantity = db.session.query(func.coalesce(func.sum(cart_items.columns.cover_quantity), 0)).scalar()
+        # Join necessary tables to get cart items for the current user
+        query = db.session.query(func.coalesce(func.sum(cart_items.columns.cover_quantity), 0)). \
+            join(Cart, Cart.id == cart_items.columns.cart_id). \
+            join(User, User.id == Cart.user_id). \
+            filter(User.id == current_user.id)
+
+        quantity = query.scalar()
     else:
         quantity = 0
     return quantity
@@ -117,10 +131,24 @@ def home():
 @admin_only
 def add_cover():
     if request.method == "POST":
+        if 'image' not in request.files:
+            flash('No file part')
+            return redirect(request.url)
+        file = request.files['image']
+        if file.filename == '':
+            flash('No selected file')
+            return redirect(request.url)
+
+        if file:
+            upload_result = cloudinary.uploader.upload(
+                file,
+                folder="covers"
+            )
+            image_url = upload_result.get('url')
         new_cover = Covers(
             model=request.form.get('phoneName'),
             price=request.form.get('price'),
-            image=request.form.get('image'),
+            image=image_url,
             quantity=request.form.get('quantity'),
             title=request.form.get('title')
         )
@@ -130,7 +158,56 @@ def add_cover():
         return (redirect(url_for('home')))
     return render_template("covers_add_form.html")
 
+@app.route('/cover_details/<cover_id>/update', methods=['GET', 'POST'])
+@admin_only
+def update_cover(cover_id):
+    cover = Covers.query.get_or_404(cover_id)
+    # Check if the current user is the owner of the cover
+    if cover.user_id != current_user.id:
+        flash('You do not have permission to update this cover.', 'danger')
+        return redirect(url_for('home'))
 
+    if request.method == 'POST':
+        if 'image' not in request.files:
+            flash('No file part')
+            return redirect(request.url)
+        file = request.files['image']
+        if file.filename == '':
+            flash('No selected file')
+            return redirect(request.url)
+
+        if file:
+            upload_result = cloudinary.uploader.upload(
+                file,
+                folder="covers"
+            )
+            image_url = upload_result.get('url')
+        cover.model = request.form.get('phoneName')
+        cover.price = request.form.get('price')
+        cover.image = image_url
+        cover.quantity = request.form.get('quantity')
+        cover.title = request.form.get('title')
+        db.session.commit()
+        flash('Cover updated successfully!', 'success')
+        return redirect(url_for('home'))
+    else:
+        return render_template('update_cover_form.html', cover=cover)
+
+@app.route('/cover_details/<cover_id>/delete', methods=['DELETE'])
+def delete_cover_perm(cover_id):
+    # Check if the user is authenticated and is an admin
+    if current_user.is_authenticated and current_user.is_admin:
+        # Query the cover by ID
+        cover = Covers.query.get(cover_id)
+        if cover:
+            # Delete the cover
+            db.session.delete(cover)
+            db.session.commit()
+            return jsonify({'message': 'Cover deleted successfully'}), 200
+        else:
+            return jsonify({'error': 'Cover not found'}), 404
+    else:
+        return jsonify({'error': 'Unauthorized'}), 401
 @app.route('/cover_details/<cover_id>', methods=['POST', 'GET'])
 def cover_detais(cover_id):
     if request.method == "POST":
@@ -145,6 +222,10 @@ def cover_detais(cover_id):
     cover = db.get_or_404(Covers, cover_id)
     cancelled_price=int(cover.price)*10
     return render_template("cover_details.html", cover=cover, users=users, cancelled_price=cancelled_price)
+
+
+# Assuming you have a route to delete covers
+
 
 
 @app.route('/login', methods=['POST', 'GET'])

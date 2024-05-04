@@ -7,7 +7,7 @@
                 <div class="col-md-6 col-lg-3 col-sm-6">
                     <a href="{{url_for('cover_detais', cover_id=cover.id)}}" class="text-decoration-none">
                         <div class="card">
-                             <img src="{{ cover.image }}" class="card-img-top" alt="{{ cover.title }}">
+                             <img src="{{ cover.image }}" class="card-img-top" alt="{{ cover.title }}" style="height: 200px;object-fit: cover;border-top-left-radius: 5px;border-top-right-radius: 5px;" >
                             <div class="card-body">
                                 <h5 class="card-title text-dark">{{ cover.title }}</h5>
                                 <p class="card-text text-dark"><span class="canceled-price">1299</span> {{ cover.price }}</p>
