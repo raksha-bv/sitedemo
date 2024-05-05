@@ -8,6 +8,7 @@ from functools import wraps
 from datetime import datetime, timedelta
 import secrets
 import os
+from flask_talisman import Talisman
 from dotenv import load_dotenv
 
 
@@ -33,7 +34,18 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 
 
-
+csp = {
+    'default-src': '\'self\'',
+    'connect-src': ['\'self\'', 'https://api.mapbox.com/', 'https://a.tiles.mapbox.com/', 'https://b.tiles.mapbox.com/', 'https://events.mapbox.com/'],
+    'style-src': ['\'self\'', 'maxcdn.bootstrapcdn.com', 'stackpath.bootstrapcdn.com', '\'unsafe-inline\''],
+    'script-src': ['\'self\'', 'cdn.jsdelivr.net', 'stackpath.bootstrapcdn.com', '\'unsafe-inline\''],
+    'img-src': ['\'self\'', 'blob:', 'data:', 'https://res.cloudinary.com/dh6qnpost/', 'https://images.unsplash.com/'],
+    'media-src': ['\'self\'', 'https://res.cloudinary.com/dh6qnpost/'],
+    'object-src': '\'none\'',
+    'font-src': ['\'self\'', 'maxcdn.bootstrapcdn.com', 'stackpath.bootstrapcdn.com'],
+    'child-src': ['blob:']
+}
+talisman = Talisman(app, content_security_policy=csp)
 
 
 # Association Table
