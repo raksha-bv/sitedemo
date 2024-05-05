@@ -6,3 +6,4 @@ mysql-connector-python==8.3.0
 Werkzeug==3.0.2
 python-dotenv==1.0.1
 cloudinary==1.40.0
+gunicorn==22.0.0
