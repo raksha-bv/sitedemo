@@ -301,10 +301,8 @@ def signup():
         results = db.session.execute(db.select(User).where(User.email == request.form.get('email')))
         user = results.scalar()
         if not user:
-            if request.form.get('customer'):
-                seller=False
-            else:
-                seller=True
+            role = request.form.get('role')
+            seller = role == 'seller'
             new_user = User(
                 name=request.form.get('username'),
                 email=request.form.get('email'),
@@ -537,4 +535,4 @@ def admin_orders():
 #     db.session.commit()
 
 if __name__ == "__main__":
-    app.run(debug=False)
+    app.run(debug=True)
