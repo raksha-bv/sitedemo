@@ -1,13 +1,15 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, abort, jsonify
 from flask_login import UserMixin, login_user, logout_user, current_user, LoginManager
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import func
+from sqlalchemy import func,and_
+from sqlalchemy.orm import joinedload
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 from datetime import datetime, timedelta
 import secrets
 import os
 from dotenv import load_dotenv
+
 
 import cloudinary
 import cloudinary.uploader
@@ -17,7 +19,7 @@ load_dotenv()
 
 app=Flask(__name__,template_folder='templates')
 config = cloudinary.config(secure=True)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+mysqlconnector://root:S%40hil276@localhost/flasksite'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+mysqlconnector://sql6704195:Li1Nre2FKd@sql6.freesqldatabase.com/sql6704195'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 app.config['SECRET_KEY'] = 'secret-key-goes-here'
@@ -30,6 +32,10 @@ app.secret_key = secret_key
 login_manager = LoginManager()
 login_manager.init_app(app)
 
+
+
+
+
 # Association Table
 cart_items = db.Table(
     'cart_items',
@@ -37,7 +43,12 @@ cart_items = db.Table(
     db.Column('cover_id', db.Integer, db.ForeignKey('covers.id'), primary_key=True),
     db.Column('cover_quantity', db.Integer, nullable=False, default=1)
 )
-
+order_items = db.Table(
+    'order_items',
+    db.Column('order_id', db.Integer, db.ForeignKey('order.id'), primary_key=True),
+    db.Column('cover_id', db.Integer, db.ForeignKey('covers.id'), primary_key=True),
+    db.Column('cover_quantity', db.Integer, nullable=False, default=1)
+)
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -53,9 +64,22 @@ class User(UserMixin, db.Model):
 
 class Order(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    covers = db.relationship('Covers', backref='order')
+    # covers_ordered = db.relationship('Covers', secondary='order_items', backref='orders')
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     date = db.Column(db.String(250), nullable=False)
+    name = db.Column(db.String(250), nullable=False)
+    email = db.Column(db.String(250), nullable=False)
+    address1 = db.Column(db.String(250), nullable=False)
+    address2 = db.Column(db.String(250), nullable=False)
+    pincode = db.Column(db.Integer, nullable=False)
+    town_city = db.Column(db.String(250), nullable=False)
+    phone_number = db.Column(db.String(20), nullable=False)
+    state = db.Column(db.String(250), nullable=False)
+    country = db.Column(db.String(250), nullable=False)
+    payment_type = db.Column(db.String(50), nullable=False)
+    cover_title = db.Column(db.String(250), nullable=False)  # New field
+    cover_quantity = db.Column(db.Integer, nullable=False)  # New field
+    phone_model = db.Column(db.String(250), nullable=False)
 
 class Covers(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -64,9 +88,10 @@ class Covers(db.Model):
     price = db.Column(db.String(250), nullable=False)
     image = db.Column(db.String(250), nullable=False)
     quantity = db.Column(db.Integer, nullable=False)
-    order_id = db.Column(db.Integer, db.ForeignKey('order.id'), nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    # order_id = db.Column(db.Integer, db.ForeignKey('order.id'), nullable=True)
     carts = db.relationship('Cart', secondary=cart_items, backref='covers', overlaps="carts,covers")
-
+    orders = db.relationship('Order', secondary='order_items', backref='covers')
 
 class Comment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -95,7 +120,6 @@ def admin_only(f):
             return abort(403)
         return f(*args, **kwargs)
     return decorated_function
-
 def get_total_quantity():
     if current_user.is_authenticated:
         # Join necessary tables to get cart items for the current user
@@ -145,12 +169,14 @@ def add_cover():
                 folder="covers"
             )
             image_url = upload_result.get('url')
+        user_id = current_user.id
         new_cover = Covers(
             model=request.form.get('phoneName'),
             price=request.form.get('price'),
             image=image_url,
             quantity=request.form.get('quantity'),
-            title=request.form.get('title')
+            title=request.form.get('title'),
+            user_id=user_id
         )
 
         db.session.add(new_cover)
@@ -208,6 +234,9 @@ def delete_cover_perm(cover_id):
             return jsonify({'error': 'Cover not found'}), 404
     else:
         return jsonify({'error': 'Unauthorized'}), 401
+
+
+
 @app.route('/cover_details/<cover_id>', methods=['POST', 'GET'])
 def cover_detais(cover_id):
     if request.method == "POST":
@@ -383,13 +412,45 @@ def account():
 @app.route('/checkout', methods=['POST', 'GET'])
 def checkout():
     if request.method == 'POST':
+        num_covers = int(request.form.get('num_covers'))
+        covers_info = []
+        for i in range(0, num_covers + 1):
+            cover_title = request.form.get(f'title_{i}')
+            cover_quantity = request.form.get(f'quantity_{i}')
+            phone_model = request.form.get(f'model_{i}')
+            covers_info.append({'title': cover_title, 'quantity': cover_quantity, 'model': phone_model})
         user = current_user
-        new_order = Order(
-            user_id=user.id,
-            date=str(datetime.today().date())
-        )
+
+        for item in user.cart.items:
+            cart_it = db.session.query(cart_items).filter_by(cart_id=user.cart.id, cover_id=item.id).first()
+            cover_info={
+                'cover': item,
+                'quantity': cart_it.cover_quantity,
+                'price': item.price,
+                'title': item.title,
+                'model': item.model,
+            }
+            covers_info.append(cover_info)
+
+        for cover in covers_info:
+            new_order = Order(
+                user_id=current_user.id,
+                date=str(datetime.today().date()),
+                name=request.form.get('name'),
+                email=request.form.get('email'),
+                address1=request.form.get('address1'),
+                address2=request.form.get('address2'),
+                pincode=request.form.get('pincode'),
+                town_city=request.form.get('Town/City'),
+                phone_number=request.form.get('phone'),
+                state=request.form.get('state'),
+                country=request.form.get('countries'),
+                payment_type=request.form.get('payment_type'),
+                cover_title=cover['title'],
+                cover_quantity=cover['quantity'],
+                phone_model=cover['model']
+            )
         db.session.add(new_order)
-        db.session.commit()
 
         for item in user.cart.items:
             cart_it = db.session.query(cart_items).filter_by(cart_id=user.cart.id, cover_id=item.id).first()
@@ -414,7 +475,6 @@ def checkout():
     items = []
 
     for item in user_cart_items:
-        # Use db.session.query(cart_items) to get the cover_quantity
         cart_item = db.session.query(cart_items).filter_by(cart_id=user_cart.id, cover_id=item.id).first()
         cover_item = {
             'cover': item,
@@ -430,18 +490,30 @@ def checkout():
     return render_template("checkout.html", items=items, total=total)
 
 
-hashed_password = generate_password_hash("S@hil276")
+@app.route('/admin/orders')
+@admin_only
+def admin_orders():
+    # Query orders related to covers posted by the current admin
+    admin_user_id = current_user.id
+    print(admin_user_id)
+    admin_orders = Order.query \
+        .all()
 
-with app.app_context():
-    # your code here, e.g., database operations
-    new_admin = User(
-    name = 'Raksha',
-    email = 'rakshabv@example.com',
-    password = hashed_password,  # make sure to hash passwords
-    is_admin = True
-    )
-    db.session.add(new_admin)
-    db.session.commit()
+    return render_template('admin_orders.html', orders=admin_orders)
+
+
+# hashed_password = generate_password_hash("S@hil276")
+#
+# with app.app_context():
+#     # your code here, e.g., database operations
+#     new_admin = User(
+#     name = 'Raksha',
+#     email = 'rakshabv@example.com',
+#     password = hashed_password,  # make sure to hash passwords
+#     is_admin = True
+#     )
+#     db.session.add(new_admin)
+#     db.session.commit()
 
 if __name__ == "__main__":
     app.run(debug=True)

@@ -73,6 +73,10 @@
                                         {{ item['cover'].title }}
                                     </a>
                                 </td>
+                                <input type="hidden" id="num_covers" name="num_covers" value="{{ item['cover_quantity'] }}">
+                                <input type="hidden" id="title" name="title" value="{{ item['cover'].title }}">
+                                <input type="hidden" id="model" name="model" value="{{ item['cover'].model }}">
+                                <input type="hidden" id="quantity" name="quantity" value="{{ item['cover_quantity'] }}">
                                 <td>{{ item['cover'].model }}</td>
                                 <td>{{ item['cover_quantity'] }}</td>
                                 <td>{{ item['cover'].price }}</td>
