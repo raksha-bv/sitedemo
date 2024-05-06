@@ -156,13 +156,6 @@ def get_total_quantity():
 
 @app.route("/", methods=['POST', 'GET'])
 def home():
-    if request.method == "POST":
-        new_comment = Comment(
-            user_id=current_user.id,
-            text=request.form.get('userComment')
-        )
-        db.session.add(new_comment)
-        db.session.commit()
     page = request.args.get('page', 1, type=int)
     per_page = 12
     covers = Covers.query.paginate(page=page, per_page=per_page, error_out=False)
@@ -171,6 +164,19 @@ def home():
     quantity = get_total_quantity()
     return render_template("home.html",quantity=quantity, covers=covers, users=users)
 
+@app.route("/reviews",methods=['POST', 'GET'])
+def reviews():
+    if request.method == "POST":
+        new_comment = Comment(
+            user_id=current_user.id,
+            text=request.form.get('userComment')
+        )
+        db.session.add(new_comment)
+        db.session.commit()
+    results = db.session.execute(db.select(User).order_by(User.name))
+    users = results.scalars().all()
+    quantity = get_total_quantity()
+    return render_template("comments.html",quantity=quantity,users=users)
 
 @app.route('/add_cover', methods=['POST', 'GET'])
 @admin_only
@@ -517,7 +523,6 @@ def admin_orders():
     print(admin_user_id)
     admin_orders = Order.query \
         .all()
-
     return render_template('admin_orders.html', orders=admin_orders)
 
 
