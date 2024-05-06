@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, abort, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, abort, jsonify, make_response
 from flask_login import UserMixin, login_user, logout_user, current_user, LoginManager
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func,and_
@@ -10,6 +10,7 @@ import secrets
 import os
 from flask_talisman import Talisman
 from dotenv import load_dotenv
+import pdfkit
 
 
 import cloudinary
@@ -20,7 +21,7 @@ load_dotenv()
 
 app=Flask(__name__,template_folder='templates')
 config = cloudinary.config(secure=True)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+mysqlconnector://sql6704195:Li1Nre2FKd@sql6.freesqldatabase.com/sql6704195'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+mysqlconnector://sql6704351:qJ4JGkwyAF@sql6.freesqldatabase.com/sql6704351'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 app.config['SECRET_KEY'] = 'secret-key-goes-here'
@@ -32,29 +33,51 @@ app.secret_key = secret_key
 
 login_manager = LoginManager()
 login_manager.init_app(app)
-
-
+config2 = pdfkit.configuration(wkhtmltopdf='C:\\Users\\raksh\\OneDrive\\Desktop\\web\\flaskSite\\wkhtmltopdf\\bin\\wkhtmltopdf.exe')
 csp = {
     'default-src': '\'self\'',
-    'connect-src': ['\'self\'', 'https://api.mapbox.com/', 'https://a.tiles.mapbox.com/', 'https://b.tiles.mapbox.com/', 'https://events.mapbox.com/'],
-    'style-src': ['\'self\'', 'maxcdn.bootstrapcdn.com', 'stackpath.bootstrapcdn.com', '\'unsafe-inline\'',"https://cdn.jsdelivr.net","https://kit-free.fontawesome.com/","https://stackpath.bootstrapcdn.com/",
-    "https://api.mapbox.com/",
-    "https://api.tiles.mapbox.com/",
-    "https://fonts.googleapis.com/",
-    "https://use.fontawesome.com/",],
-    'script-src': ['\'self\'', 'cdn.jsdelivr.net', 'stackpath.bootstrapcdn.com', '\'unsafe-inline\'',"https://stackpath.bootstrapcdn.com/",
-    "https://api.tiles.mapbox.com/",
-    "https://api.mapbox.com/",
-    "https://kit.fontawesome.com/",
-    "https://cdnjs.cloudflare.com/",
-    "https://cdn.jsdelivr.net",],
-    'img-src': ['\'self\'', 'blob:', 'data:', 'https://res.cloudinary.com/dh6qnpost/', 'https://images.unsplash.com/'],
+    'connect-src': ['\'self\'', 'https://api.example.com'],  # Add your API endpoint here
+    'style-src': [
+        '\'self\'',
+        'https://fonts.googleapis.com',
+        'https://cdn.jsdelivr.net',
+        'https://kit-free.fontawesome.com',
+        'https://stackpath.bootstrapcdn.com',
+        'https://cdn-uicons.flaticon.com',
+        'https://fonts.gstatic.com',
+        'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css',  # Include Bootstrap if not already allowed
+    ],
+    'font-src': [
+        '\'self\'',
+        'https://maxcdn.bootstrapcdn.com',
+        'https://stackpath.bootstrapcdn.com',
+        'https://fonts.gstatic.com',
+        'https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.4/webfonts/',  # Include FontAwesome if not already allowed
+        'https://cdn-uicons.flaticon.com',
+    ],
+    'script-src': [
+        '\'self\'',
+        'https://cdn.jsdelivr.net',
+        'https://stackpath.bootstrapcdn.com',
+        'https://kit.fontawesome.com',
+        'https://cdnjs.cloudflare.com',
+    ],
+    'img-src': [
+        '\'self\'',
+        'blob:',
+        'data:',
+        'file:',
+        '*',
+        'https://res.cloudinary.com/dh6qnpost/',
+        'https://images.unsplash.com/',
+    ],
     'media-src': ['\'self\'', 'https://res.cloudinary.com/dh6qnpost/'],
     'object-src': '\'none\'',
-    'font-src': ['\'self\'', 'maxcdn.bootstrapcdn.com', 'stackpath.bootstrapcdn.com'],
-    'child-src': ['blob:']
+    'child-src': ['blob:'],
 }
+
 talisman = Talisman(app, content_security_policy=csp)
+
 
 
 # Association Table
@@ -80,7 +103,6 @@ class User(UserMixin, db.Model):
     comments = db.relationship('Comment', backref='user')
     orders = db.relationship('Order', backref='user')
     cart = db.relationship('Cart', backref='user', uselist=False)
-
 
 
 class Order(db.Model):
@@ -211,57 +233,41 @@ def add_cover():
         return (redirect(url_for('home')))
     return render_template("covers_add_form.html")
 
-@app.route('/cover_details/<cover_id>/update', methods=['GET', 'POST'])
-@admin_only
-def update_cover(cover_id):
-    cover = Covers.query.get_or_404(cover_id)
-    # Check if the current user is the owner of the cover
-    if cover.user_id != current_user.id:
-        flash('You do not have permission to update this cover.', 'danger')
-        return redirect(url_for('home'))
 
-    if request.method == 'POST':
-        if 'image' not in request.files:
-            flash('No file part')
-            return redirect(request.url)
-        file = request.files['image']
-        if file.filename == '':
-            flash('No selected file')
-            return redirect(request.url)
-
-        if file:
-            upload_result = cloudinary.uploader.upload(
-                file,
-                folder="covers"
-            )
-            image_url = upload_result.get('url')
-        cover.model = request.form.get('phoneName')
-        cover.price = request.form.get('price')
-        cover.image = image_url
-        cover.quantity = request.form.get('quantity')
-        cover.title = request.form.get('title')
-        db.session.commit()
-        flash('Cover updated successfully!', 'success')
-        return redirect(url_for('home'))
-    else:
-        return render_template('update_cover_form.html', cover=cover)
-
-@app.route('/cover_details/<cover_id>/delete', methods=['DELETE'])
-def delete_cover_perm(cover_id):
-    # Check if the user is authenticated and is an admin
-    if current_user.is_authenticated and current_user.is_admin:
-        # Query the cover by ID
-        cover = Covers.query.get(cover_id)
-        if cover:
-            # Delete the cover
-            db.session.delete(cover)
-            db.session.commit()
-            return jsonify({'message': 'Cover deleted successfully'}), 200
-        else:
-            return jsonify({'error': 'Cover not found'}), 404
-    else:
-        return jsonify({'error': 'Unauthorized'}), 401
-
+# @app.route('/cover_details/<cover_id>/update', methods=['GET', 'POST'])
+# @admin_only
+# def update_cover(cover_id):
+#     cover = Covers.query.get_or_404(cover_id)
+#     # Check if the current user is the owner of the cover
+#     if cover.user_id != current_user.id:
+#         flash('You do not have permission to update this cover.', 'danger')
+#         return redirect(url_for('home'))
+#
+#     if request.method == 'POST':
+#         if 'image' not in request.files:
+#             flash('No file part')
+#             return redirect(request.url)
+#         file = request.files['image']
+#         if file.filename == '':
+#             flash('No selected file')
+#             return redirect(request.url)
+#
+#         if file:
+#             upload_result = cloudinary.uploader.upload(
+#                 file,
+#                 folder="covers"
+#             )
+#             image_url = upload_result.get('url')
+#         cover.model = request.form.get('phoneName')
+#         cover.price = request.form.get('price')
+#         cover.image = image_url
+#         cover.quantity = request.form.get('quantity')
+#         cover.title = request.form.get('title')
+#         db.session.commit()
+#         flash('Cover updated successfully!', 'success')
+#         return redirect(url_for('home'))
+#     else:
+#         return render_template('update_cover_form.html', cover=cover)
 
 
 @app.route('/cover_details/<cover_id>', methods=['POST', 'GET'])
@@ -281,6 +287,34 @@ def cover_detais(cover_id):
 
 
 # Assuming you have a route to delete covers
+
+@app.route('/cover_details/<cover_id>/delete', methods=['DELETE'])
+def delete_cover_perm(cover_id):
+    cover = Covers.query.get_or_404(cover_id)
+
+    # Check if the cover is associated with any carts or orders
+    carts_with_cover = Cart.query.filter(Cart.items.contains(cover)).all()
+    orders_with_cover = Order.query.filter(Order.covers.contains(cover)).all()
+
+    try:
+        # Delete the cover and commit changes
+        db.session.delete(cover)
+        db.session.commit()
+
+        # Remove the cover from carts and orders
+        for cart in carts_with_cover:
+            cart.items.remove(cover)
+        for order in orders_with_cover:
+            order.covers.remove(cover)
+
+        # Commit the changes after removing associations
+        db.session.commit()
+        return redirect(url_for('view_covers'))  # Redirect to covers page after successful deletion
+    except Exception as e:
+        db.session.rollback()  # Rollback changes if an error occurs
+        print(e)  # Handle or log the error appropriately
+        return redirect(url_for('view_covers'))
+
 
 
 
@@ -307,8 +341,10 @@ def signup():
         results = db.session.execute(db.select(User).where(User.email == request.form.get('email')))
         user = results.scalar()
         if not user:
-            role = request.form.get('role')
-            seller = role == 'seller'
+            if request.form.get('role')== 'customer':
+                seller=False
+            else:
+                seller=True
             new_user = User(
                 name=request.form.get('username'),
                 email=request.form.get('email'),
@@ -398,6 +434,45 @@ def view_cart():
 
     return render_template("cart.html", items=items, total=total)
 
+@app.route("/get_pdf", methods=['POST'])
+def get_pdf():
+    if not current_user.is_authenticated:
+        return render_template('not_log_in.html', message="You need to be logged in to access your cart")
+
+    user = current_user
+    user_cart = user.cart
+    if request.method=="POST":
+        if user_cart is None:
+            user_cart = Cart(user_id=user.id)
+            db.session.add(user_cart)
+            db.session.commit()
+
+        user_cart_items = user_cart.items
+        total = 0
+        items = []
+
+        for item in user_cart_items:
+        # Use db.session.query(cart_items) to get the cover_quantity
+            cart_item = db.session.query(cart_items).filter_by(cart_id=user_cart.id, cover_id=item.id).first()
+            cover_item = {
+                'cover': item,
+                'cover_quantity': cart_item.cover_quantity if cart_item else 0,  # Default to 0 if cart_item is None
+                'image': item.image,
+                'price': item.price,
+                'title': item.title,
+                'model': item.model,
+                'id': item.id
+            }
+            items.append(cover_item)
+            total += int(item.price.split('.')[0]) * cover_item['cover_quantity']
+        invoice = "invoice"
+        rendered = render_template("pdf.html", items=items, total=total)
+        pdf = pdfkit.from_string(rendered, False, configuration=config2)
+        response = make_response(pdf)
+        response.headers['Content-Type'] = 'application/pdf'
+        response.headers['Content-Disposition'] = f'inline; filename={invoice}.pdf'
+
+    return response
 
 @app.route("/delete_item/<int:cover_id>")
 def delete_cover(cover_id):
@@ -437,15 +512,15 @@ def account():
 @app.route('/checkout', methods=['POST', 'GET'])
 def checkout():
     if request.method == 'POST':
-        num_covers = int(request.form.get('num_covers'))
-        covers_info = []
-        for i in range(0, num_covers + 1):
-            cover_title = request.form.get(f'title_{i}')
-            cover_quantity = request.form.get(f'quantity_{i}')
-            phone_model = request.form.get(f'model_{i}')
-            covers_info.append({'title': cover_title, 'quantity': cover_quantity, 'model': phone_model})
+        # num_covers = int(request.form.get('num_covers'))
+        # covers_info = []
+        # for i in range(0, num_covers + 1):
+        #     cover_title = request.form.get(f'title_{i}')
+        #     cover_quantity = request.form.get(f'quantity_{i}')
+        #     phone_model = request.form.get(f'model_{i}')
+        #     covers_info.append({'title': cover_title, 'quantity': cover_quantity, 'model': phone_model})
         user = current_user
-
+        covers_info = []
         for item in user.cart.items:
             cart_it = db.session.query(cart_items).filter_by(cart_id=user.cart.id, cover_id=item.id).first()
             cover_info={
@@ -520,6 +595,7 @@ def checkout():
 def admin_orders():
     # Query orders related to covers posted by the current admin
     admin_user_id = current_user.id
+
     print(admin_user_id)
     admin_orders = Order.query \
         .all()

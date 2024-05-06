@@ -60,6 +60,9 @@
         id="cart-checkout"
         >Checkout</a
       >
+      <form action="{{url_for('get_pdf')}}" method="post" >
+          <button type="submit" class="btn btn-info">Get PDF</button>
+      </form>
       {% else %}
       <p class="cart-no-item">Your cart is empty.</p>
       {% endif %}
