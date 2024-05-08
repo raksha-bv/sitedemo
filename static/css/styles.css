@@ -338,7 +338,7 @@ body {
   height: fit-content;
 }
 .cart-total {
-  margin-left: 10px;
+  margin-left: 5px;
   font-size: 19px;
   font-weight: normal;
 }
@@ -346,10 +346,10 @@ body {
   font-weight: bold;
 }
 #cart-checkout {
-  margin-left: 10px;
+  margin-left: 5 px;
 }
 .cart-no-item {
-  margin-left: 10px;
+  margin: 10px;
 }
 @media only screen and (max-width: 600px) {
   .table {

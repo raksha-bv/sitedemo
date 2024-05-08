@@ -54,18 +54,26 @@
         <span class="total-text">Total: </span>
         ₹{{ total }}
       </p>
+      <div class="row">
+        <div class="col">
       <a
         href="{{url_for('checkout')}}"
         class="btn outline-btn my-4"
         id="cart-checkout"
         >Checkout</a
       >
-      <form action="{{url_for('get_pdf')}}" method="post" >
-          <button type="submit" class="btn btn-info">Get PDF</button>
+      </div>
+      <div class="col text-end">
+    <form class="" action="{{url_for('get_pdf')}}" method="post" >
+          <button type="submit" class="btn primary-btn my-4">Get PDF</button>
       </form>
+    </div>
+    </div>
+      </div>
       {% else %}
       <p class="cart-no-item">Your cart is empty.</p>
       {% endif %}
     </div>
+    
   </div>
 </div>
