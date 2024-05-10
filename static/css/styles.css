@@ -18,9 +18,15 @@ body {
 }
 
 .brand-logo {
-  margin-left: 16px;
-  width: 84px;
-  height: 84px;
+  margin-left: 34px;
+  width: 74px;
+  height: 74px;
+  transition: all 0.3s ease-in-out;
+}
+
+.brand-logo:hover,.brand-logo:focus {
+  margin-left: 34px;
+  transform: scale(1.2);
 }
 
 .nav-link {
@@ -389,3 +395,39 @@ body {
   background-size: cover;
   background-position: center;
 }
+
+/* Radio button */
+
+.form-check-input[type="radio"] {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  outline: none; /* Remove the outline */
+  box-shadow: none; /* Remove the shadow */
+  border: none; /* Remove the border */
+}
+.form-check-input[ type="radio"]:checked{
+  background-color: #760fe9;
+  border: none;
+}
+.form-check-input[ type="radio"]:checked:active{
+  background-color: #760fe9;
+  
+  border: none;
+}
+.form-check-input[ type="radio"]:checked::before{
+  background-color: #760fe9;
+  border: none;
+}
+
+/* checkout cart page */
+
+.checkout-cart-heading{
+  color: #760fe9;
+}
+.badge{
+  background-color: #760fe9;
+}
+
+
+/* input field labels */
